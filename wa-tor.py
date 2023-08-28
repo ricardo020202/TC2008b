@@ -5,7 +5,6 @@
 # =============================================================================
 import random
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 from matplotlib.colors import LinearSegmentedColormap
 
 # =============================================================================
