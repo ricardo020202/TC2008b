@@ -10,29 +10,14 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.colors import LinearSegmentedColormap
 
 # =============================================================================
-# Definicion de constantes
-# =============================================================================
-WATER = 0
-FISH = 1
-SHARK = 2
-
-energies = {FISH: 20, SHARK: 3}
-fertility_thresh = {FISH: 4, SHARK: 12}
-
-colors = ['#FFFFFF', '#FFD700', '#FF0000']
-cm = LinearSegmentedColormap.from_list('wator_cmap', colors, N=3)
-
-random.seed(10)
-
-# =============================================================================
-# Definicion del agente
+# Definicion del agente Animal
 # =============================================================================
 class Animal_Agent():
-    def __init__(self, id, x, y, energy, fertility_threshold):
+    def __init__(self, id, x, y, energy, fertility_thresh):
         self.id = id
         self.x, self.y = x, y
         self.energy = energy
-        self.fertility_threshold = fertility_threshold
+        self.fertility_thresh = fertility_thresh
         self.fertility = 0
         self.dead = False
 
@@ -47,34 +32,26 @@ class Aquarium_Model():
         self.animals = []
 
     # =============================================================================
-    # Funcion para colocar un agente en el modelo
-    # Entrada: id del agente, posicion x, posicion y
-    # Salida: Ninguna
-    # =============================================================================
-    def place_agent(self, animal_id, x, y):
-        animal = Animal_Agent(animal_id, x, y,
-                            energies[animal_id],
-                            fertility_thresh[animal_id])
-        self.animals.append(animal)
-        self.grid[y][x] = animal
-
-    # =============================================================================
     # Funcion para llenar el modelo con agentes
     # Entrada: numero de peces, numero de tiburones
     # Salida: Ninguna
     # =============================================================================
-    def fill(self, nfish=120, nsharks=40):
-        self.nfish, self.nsharks = nfish, nsharks
+    def place_agents(self, numFish=120, numSharks=40):
+        self.numFish, self.numSharks = numFish, numSharks
 
-        for _ in range(self.nfish):
+        for _ in range(self.numFish):
             x, y = random.randrange(self.width), random.randrange(self.height)
             if not self.grid[y][x]:
-                self.place_agent(FISH, x, y)
+                animal = Animal_Agent(FISH, x, y, energies[FISH], fertility_thresh[FISH])
+                self.animals.append(animal)
+                self.grid[y][x] = animal
 
-        for _ in range(self.nsharks):
+        for _ in range(self.numSharks):
             x, y = random.randrange(self.width), random.randrange(self.height)
             if not self.grid[y][x]:
-                self.place_agent(SHARK, x, y)
+                animal = Animal_Agent(SHARK, x, y, energies[SHARK], fertility_thresh[SHARK])
+                self.animals.append(animal)
+                self.grid[y][x] = animal
 
     # =============================================================================
     # Funcion para obtener la matriz del modelo
@@ -86,26 +63,19 @@ class Aquarium_Model():
                  for x in range(self.width)] for y in range(self.height)]
 
     # =============================================================================
-    # Funcion para obtener los vecinos de un agente
-    # Entrada: posicion x, posicion y
-    # Salida: Diccionario de vecinos
-    # =============================================================================
-    def get_neighbours(self, x, y):
-        neighbours = {}
-        for dx, dy in ((0,-1), (1,0), (0,1), (-1,0)):
-            xp, yp = (x+dx) % self.width, (y+dy) % self.height
-            neighbours[xp, yp] = self.grid[yp][xp]
-        return neighbours
-
-    # =============================================================================
-    # Funcion para realizar un paso en el modelo
+    # Funcion para mover un agente
     # Entrada: agente
     # Salida: Ninguna
     # =============================================================================
-    def move(self, animal):
-        neighbours = self.get_neighbours(animal.x, animal.y)
+    def move(self, animal, x, y):
+        neighbours = {}
         animal.fertility += 1
         moved = False
+
+        dx_dy_pairs = ((0, -1), (1, 0), (0, 1), (-1, 0))
+        for dx, dy in dx_dy_pairs:
+            xp, yp = (x + dx) % self.width, (y + dy) % self.height
+            neighbours[xp, yp] = self.grid[yp][xp]
         
         if animal.id == SHARK:
             fish_neighbours = [pos for pos in neighbours if neighbours[pos] != WATER and neighbours[pos].id == FISH]
@@ -133,9 +103,11 @@ class Aquarium_Model():
             x, y = animal.x, animal.y
             animal.x, animal.y = xp, yp
             self.grid[yp][xp] = animal
-            if animal.fertility >= animal.fertility_threshold:
+            if animal.fertility >= animal.fertility_thresh:
                 animal.fertility = 0
-                self.place_agent(animal.id, x, y)
+                animal = Animal_Agent(animal.id, x, y, energies[animal.id], fertility_thresh[animal.id])
+                self.animals.append(animal)
+                self.grid[y][x] = animal
             else:
                 self.grid[y][x] = WATER
 
@@ -146,22 +118,30 @@ class Aquarium_Model():
     # =============================================================================
     def step(self):
         random.shuffle(self.animals)
-        nanimals = len(self.animals)
-        for i in range(nanimals):
+        numAnimals = len(self.animals)
+        for i in range(numAnimals):
             animal = self.animals[i]
             if animal.dead:
                 continue
-            self.move(animal)
+            self.move(animal, animal.x, animal.y)
 
         self.animals = [animal for animal in self.animals if not animal.dead]
 
+CHRONONS = 400
+WATER, FISH, SHARK = 0, 1, 2
+energies = {FISH: 20, SHARK: 3}
+fertility_thresh = {FISH: 4, SHARK: 12}
+
+colors = ['#FFFFFF', '#FFD700', '#FF0000']
+cm = LinearSegmentedColormap.from_list('wator_cmap', colors, N=3)
+
+random.seed(10)
+
 aquarium = Aquarium_Model()
-aquarium.fill()
+aquarium.place_agents()
 
 fig, ax = plt.subplots()
 im = ax.imshow(aquarium.get_grid(), cmap=cm, interpolation='none')
-
-CHRONONS = 400
 
 for _ in range(CHRONONS):
     aquarium.step()
